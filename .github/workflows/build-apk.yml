@@ -9,25 +9,40 @@ on:
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout project
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
-      - name: Setup Java
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
+
+      - name: Check Java and Node versions
+        run: |
+          java -version
+          node --version
+          npm --version
 
       - name: Install dependencies
         run: npm install
+
+      - name: Check project files
+        run: |
+          test -f package.json
+          test -f capacitor.config.json
+          test -f www/index.html
+          test -f assets/icon.png
 
       - name: Add Android platform
         run: npx cap add android
@@ -35,32 +50,38 @@ jobs:
       - name: Generate Android icons
         run: npx capacitor-assets generate --android
 
-      - name: Set Landscape orientation
+      - name: Set landscape orientation
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
           p = Path("android/app/src/main/AndroidManifest.xml")
           s = p.read_text()
-          s = s.replace(
-              "<activity",
-              '<activity android:screenOrientation="landscape"',
-              1
-          )
+
+          if 'android:screenOrientation=' not in s:
+              s = s.replace(
+                  "<activity",
+                  '<activity android:screenOrientation="landscape"',
+                  1
+              )
+
           p.write_text(s)
           PY
 
-      - name: Sync project
+      - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build APK
+      - name: Build Debug APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: The-Lost-World-2-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
           
