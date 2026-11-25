@@ -1,0 +1,7 @@
+
+{
+  "appId": "com.thelostworld.adventure",
+  "appName": "The Lost World",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
