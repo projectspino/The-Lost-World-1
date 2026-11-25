@@ -1,0 +1,178 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>The Lost World 2.0</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#101b18;color:white;font-family:Arial,sans-serif}
+#game{width:100%;height:100%;display:block;touch-action:none}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(#07120a99,#07120add),url('https://images.unsplash.com/photo-1511497584788-876760111969?w=1600') center/cover;z-index:5;text-align:center;padding:20px}
+.hidden{display:none!important}
+h1{font-size:clamp(30px,7vw,58px);text-shadow:0 3px 15px #000;margin:10px}
+h2{margin:10px}
+button,select{background:#a77a37;color:white;border:1px solid #e4c58a;border-radius:10px;padding:13px 22px;font-size:16px;margin:7px;cursor:pointer}
+button:active{transform:scale(.96)}
+.panel{background:#14251eeF;padding:20px;border:1px solid #c5a36c;border-radius:16px;max-width:440px;width:100%}
+#hud{position:fixed;inset:0;z-index:2;pointer-events:none}
+#joystick{position:absolute;bottom:25px;left:25px;width:110px;height:110px;border-radius:50%;background:#ffffff35;border:2px solid #ffffff90;pointer-events:auto;touch-action:none}
+#stick{position:absolute;width:46px;height:46px;border-radius:50%;background:#e9d3a0;left:30px;top:30px}
+#jump{position:absolute;right:25px;bottom:35px;pointer-events:auto}
+#pause{position:absolute;right:15px;top:15px;pointer-events:auto}
+#hint{position:absolute;top:18px;left:15px;text-shadow:0 2px 5px black}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="menu" class="screen">
+<h1>THE LOST WORLD</h1>
+<p>Petualangan dimulai di dunia yang terlupakan</p>
+<button onclick="showScreen('characters')">MULAI PETUALANGAN</button>
+<button onclick="showScreen('settings')">PENGATURAN</button>
+</div>
+
+<div id="characters" class="screen hidden">
+<div class="panel">
+<h2>PILIH KARAKTER</h2>
+<button onclick="choose('Ksatria')">⚔ Ksatria</button>
+<button onclick="choose('Pemanah')">🏹 Pemanah</button>
+<button onclick="choose('Penyihir')">🪄 Penyihir</button>
+<p id="selected">Karakter: Ksatria</p>
+<button onclick="startGame()">LANJUTKAN</button>
+<button onclick="showScreen('menu')">KEMBALI</button>
+</div>
+</div>
+
+<div id="settings" class="screen hidden">
+<div class="panel">
+<h2>PENGATURAN GRAFIK</h2>
+<select id="quality">
+<option value="low">Rendah</option>
+<option value="medium" selected>Sedang</option>
+<option value="high">Tinggi</option>
+<option value="ultra">Ultra</option>
+</select>
+<p>Pengaturan akan diterapkan pada dunia permainan.</p>
+<button onclick="saveSettings()">SIMPAN</button>
+<button onclick="showScreen('menu')">KEMBALI</button>
+</div>
+</div>
+
+<div id="hud" class="hidden">
+<div id="hint">The Lost World</div>
+<button id="pause" onclick="showScreen('menu')">MENU</button>
+<div id="joystick"><div id="stick"></div></div>
+<button id="jump">LOMPAT</button>
+</div>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script>
+const canvas=document.getElementById("game");
+let engine,scene,player,selected="Ksatria",quality="medium";
+let dx=0,dz=0,jumping=false;
+function showScreen(id){
+document.querySelectorAll(".screen").forEach(x=>x.classList.add("hidden"));
+if(id!=="game")document.getElementById(id).classList.remove("hidden");
+document.getElementById("hud").classList.toggle("hidden",id!=="game");
+}
+function choose(name){
+selected=name;
+document.getElementById("selected").textContent="Karakter: "+name;
+}
+function saveSettings(){
+quality=document.getElementById("quality").value;
+alert("Pengaturan grafik tersimpan: "+quality);
+}
+function startGame(){
+if(!engine)initGame();
+showScreen("game");
+}
+function initGame(){
+engine=new BABYLON.Engine(canvas,true,{preserveDrawingBuffer:false,stencil:false});
+scene=new BABYLON.Scene(engine);
+scene.clearColor=new BABYLON.Color4(.48,.68,.78,1);
+const camera=new BABYLON.ArcRotateCamera("camera",-Math.PI/2,1.1,12,new BABYLON.Vector3(0,1,0),scene);
+camera.attachControl(canvas,true);
+camera.lowerRadiusLimit=7;camera.upperRadiusLimit=18;
+camera.wheelPrecision=80;
+const light=new BABYLON.HemisphericLight("light",new BABYLON.Vector3(0,1,0),scene);
+light.intensity=.9;
+const ground=BABYLON.MeshBuilder.CreateGround("ground",{width:100,height:100},scene);
+const grass=new BABYLON.StandardMaterial("grass",scene);
+grass.diffuseColor=new BABYLON.Color3(.22,.42,.2);
+ground.material=grass;
+player=BABYLON.MeshBuilder.CreateCapsule("player",{height:2,radius:.45},scene);
+player.position.y=1;
+const mat=new BABYLON.StandardMaterial("playerMat",scene);
+mat.diffuseColor=new BABYLON.Color3(.15,.35,.8);
+player.material=mat;
+const castle=BABYLON.MeshBuilder.CreateBox("castle",{width:9,height:6,depth:7},scene);
+castle.position.set(0,3,25);
+const castleMat=new BABYLON.StandardMaterial("stone",scene);
+castleMat.diffuseColor=new BABYLON.Color3(.55,.52,.46);
+castle.material=castleMat;
+for(let i=0;i<55;i++){
+let x=(Math.random()-.5)*85,z=(Math.random()-.5)*85;
+if(Math.abs(x)<5&&Math.abs(z)<8)continue;
+const trunk=BABYLON.MeshBuilder.CreateCylinder("trunk",{height:2,diameter:.45},scene);
+trunk.position.set(x,1,z);
+const leaves=BABYLON.MeshBuilder.CreateSphere("leaves",{diameter:2.7,segments:6},scene);
+leaves.position.set(x,2.6,z);
+const tm=new BABYLON.StandardMaterial("treeMat"+i,scene);
+tm.diffuseColor=new BABYLON.Color3(.12,.32,.12);
+leaves.material=tm;
+}
+scene.onBeforeRenderObservable.add(()=>{
+const dt=engine.getDeltaTime()/1000;
+const direction=new BABYLON.Vector3(dx,0,dz);
+if(direction.length()>.1){
+direction.normalize();
+player.position.addInPlace(direction.scale(5*dt));
+player.rotation.y=Math.atan2(direction.x,direction.z);
+camera.target.copyFrom(player.position);
+}
+});
+engine.runRenderLoop(()=>scene.render());
+window.addEventListener("resize",()=>engine.resize());
+}
+const pad=document.getElementById("joystick"),stick=document.getElementById("stick");
+let active=false;
+pad.addEventListener("pointerdown",e=>{
+active=true;pad.setPointerCapture(e.pointerId);movePad(e);
+});
+pad.addEventListener("pointermove",e=>{if(active)movePad(e)});
+function movePad(e){
+const r=pad.getBoundingClientRect();
+let x=e.clientX-(r.left+r.width/2),y=e.clientY-(r.top+r.height/2);
+let length=Math.hypot(x,y),max=35;
+if(length>max){x=x/length*max;y=y/length*max;}
+dx=x/max;dz=-y/max;
+stick.style.left=(32+x)+"px";stick.style.top=(32+y)+"px";
+}
+function stopPad(){
+active=false;dx=0;dz=0;stick.style.left="32px";stick.style.top="32px";
+}
+pad.addEventListener("pointerup",stopPad);
+pad.addEventListener("pointercancel",stopPad);
+document.getElementById("jump").addEventListener("pointerdown",()=>{
+if(player&&!jumping){
+jumping=true;
+const start=performance.now();
+const base=player.position.y;
+const animate=()=>{
+const t=(performance.now()-start)/650;
+if(t<1){
+player.position.y=base+Math.sin(t*Math.PI)*2;
+requestAnimationFrame(animate);
+}else{player.position.y=base;jumping=false;}
+};
+animate();
+}
+});
+showScreen("menu");
+</script>
+</body>
+</html>
