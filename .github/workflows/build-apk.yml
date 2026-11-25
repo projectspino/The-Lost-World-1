@@ -36,78 +36,28 @@ jobs:
           npm --version
           java -version
 
-      - name: Find project folder
-        run: |
-          echo "Repository contents:"
-          ls -la
-
-          PACKAGE_FILE=$(find . -maxdepth 6 \
-            -type f \
-            -name package.json \
-            -not -path '*/node_modules/*' \
-            | head -n 1)
-
-          if [ -z "$PACKAGE_FILE" ]; then
-            echo "ERROR: package.json not found!"
-            find . -maxdepth 5 -type f | sort
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$PACKAGE_FILE")
-          echo "Project folder: $PROJECT_DIR"
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
       - name: Check project files
         run: |
-          cd "$PROJECT_DIR"
+          echo "Checking project files..."
 
-          missing=0
+          test -f package.json
+          test -f capacitor.config.json
+          test -f www/index.html
+          test -f assets/icon.png
 
-          for file in package.json capacitor.config.json www/index.html assets/icon.png; do
-            if [ -f "$file" ]; then
-              echo "FOUND: $file"
-            else
-              echo "MISSING: $file"
-              missing=1
-            fi
-          done
-
-          echo ""
-          echo "Project folder contents:"
-          ls -la
-
-          echo ""
-          echo "Assets folder:"
-          ls -la assets 2>/dev/null || true
-
-          echo ""
-          echo "WWW folder:"
-          ls -la www 2>/dev/null || true
-
-          if [ "$missing" -ne 0 ]; then
-            echo "ERROR: Some required files are missing."
-            exit 1
-          fi
+          echo "All project files found!"
 
       - name: Install dependencies
-        run: |
-          cd "$PROJECT_DIR"
-          npm install
+        run: npm install
 
       - name: Add Android platform
-        run: |
-          cd "$PROJECT_DIR"
-          npx cap add android
+        run: npx cap add android
 
       - name: Generate Android icons
-        run: |
-          cd "$PROJECT_DIR"
-          npx capacitor-assets generate --android
+        run: npx capacitor-assets generate --android
 
       - name: Set landscape orientation
         run: |
-          cd "$PROJECT_DIR"
-
           python3 - <<'PY'
           from pathlib import Path
 
@@ -126,13 +76,11 @@ jobs:
           PY
 
       - name: Sync Capacitor
-        run: |
-          cd "$PROJECT_DIR"
-          npx cap sync android
+        run: npx cap sync android
 
       - name: Build APK
         run: |
-          cd "$PROJECT_DIR/android"
+          cd android
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
@@ -140,7 +88,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: The-Lost-World-2-APK
-          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
           
