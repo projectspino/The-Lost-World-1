@@ -36,47 +36,86 @@ jobs:
           npm --version
           java -version
 
+      - name: Find project folder
+        run: |
+          echo "Repository contents:"
+          ls -la
+
+          echo "Searching for package.json..."
+          PACKAGE_FILE=$(find . -maxdepth 6 \
+            -type f \
+            -name package.json \
+            -not -path '*/node_modules/*' \
+            | head -n 1)
+
+          if [ -z "$PACKAGE_FILE" ]; then
+            echo "ERROR: package.json not found!"
+            echo "All files:"
+            find . -maxdepth 5 -type f | sort
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$PACKAGE_FILE")
+          echo "Project folder: $PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
       - name: Check project files
         run: |
+          cd "$PROJECT_DIR"
+
+          echo "Checking project files..."
+
           test -f package.json
           test -f capacitor.config.json
           test -f www/index.html
           test -f assets/icon.png
+
           echo "All project files found!"
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          cd "$PROJECT_DIR"
+          npm install
 
       - name: Add Android platform
-        run: npx cap add android
+        run: |
+          cd "$PROJECT_DIR"
+          npx cap add android
 
       - name: Generate Android icons
-        run: npx capacitor-assets generate --android
+        run: |
+          cd "$PROJECT_DIR"
+          npx capacitor-assets generate --android
 
       - name: Set landscape orientation
         run: |
+          cd "$PROJECT_DIR"
+
           python3 - <<'PY'
           from pathlib import Path
 
           p = Path("android/app/src/main/AndroidManifest.xml")
           s = p.read_text()
 
-          s = s.replace(
-              "<activity",
-              '<activity android:screenOrientation="landscape"',
-              1
-          )
+          if 'android:screenOrientation=' not in s:
+              s = s.replace(
+                  "<activity",
+                  '<activity android:screenOrientation="landscape"',
+                  1
+              )
 
           p.write_text(s)
           print("Landscape orientation enabled!")
           PY
 
       - name: Sync Capacitor
-        run: npx cap sync android
+        run: |
+          cd "$PROJECT_DIR"
+          npx cap sync android
 
       - name: Build APK
         run: |
-          cd android
+          cd "$PROJECT_DIR/android"
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
@@ -84,7 +123,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: The-Lost-World-2-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
           
