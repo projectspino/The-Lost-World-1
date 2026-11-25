@@ -1,11 +1,14 @@
 
-name: Build The Lost World 2
+name: Build The Lost World 2.0
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -19,22 +22,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20 
-          
+          node-version: 20
+
       - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
 
-      - name: Check Java and Node versions
+      - name: Check environment
         run: |
-          java -version
           node --version
           npm --version
-
-      - name: Install dependencies
-        run: npm install
+          java -version
 
       - name: Check project files
         run: |
@@ -42,6 +42,10 @@ jobs:
           test -f capacitor.config.json
           test -f www/index.html
           test -f assets/icon.png
+          echo "All project files found!"
+
+      - name: Install dependencies
+        run: npm install
 
       - name: Add Android platform
         run: npx cap add android
@@ -57,20 +61,20 @@ jobs:
           p = Path("android/app/src/main/AndroidManifest.xml")
           s = p.read_text()
 
-          if 'android:screenOrientation=' not in s:
-              s = s.replace(
-                  "<activity",
-                  '<activity android:screenOrientation="landscape"',
-                  1
-              )
+          s = s.replace(
+              "<activity",
+              '<activity android:screenOrientation="landscape"',
+              1
+          )
 
           p.write_text(s)
+          print("Landscape orientation enabled!")
           PY
 
-      - name: Sync Capacitor Android
+      - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Build Debug APK
+      - name: Build APK
         run: |
           cd android
           chmod +x gradlew
